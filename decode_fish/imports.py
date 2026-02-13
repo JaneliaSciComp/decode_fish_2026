@@ -19,7 +19,4 @@ OmegaConf.register_new_resolver("add", lambda *numbers: sum(numbers))
 OmegaConf.register_new_resolver("bool_fac", lambda bfac, num: bool(bfac)*num)
 
 default_conf = '../config/train.yaml'
-# simfish_dir = '/groups/turaga/home/speisera/share_TUM/FishSIM/'
-# temp_dir = '/groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deeppop/temp_save/'
-# exp_dir = '/groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deeppop/DiSAE_nbdev/experiments/'
-base_path = '/groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deepstorm/'
+base_path = Path(__file__).parent.parent

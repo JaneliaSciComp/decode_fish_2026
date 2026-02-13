@@ -64,9 +64,9 @@ def my_app(cfg):
                     codebook, targets = hydra.utils.instantiate(model_cfg.codebook)
                     
                     model, post_proc, _, _, _ = load_all(model_cfg)
-                    model.cuda()        
+                    model.to(cfg.device.gpu_device)
 
-                    dec_df = get_prediction(model,torch.tensor(xsimn).cuda(), post_proc, cuda=True)
+                    dec_df = get_prediction(model,torch.tensor(xsimn).to(cfg.device.gpu_device), post_proc, cuda=True)
                     free_mem()
 
                     dec_df = crop_f(dec_df)

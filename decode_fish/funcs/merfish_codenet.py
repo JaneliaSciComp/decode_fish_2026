@@ -58,9 +58,9 @@ class conv_net(nn.Module):
         self.n_chs = n_chs
         self.n_metrics = n_metrics
 
-        self.int_c1 = nn.Linear(3, 10).cuda()
-        self.int_c2 = nn.Linear(10, 10).cuda()
-        self.int_c3 = nn.Linear(10, 1).cuda()
+        self.int_c1 = nn.Linear(3, 10)
+        self.int_c2 = nn.Linear(10, 10)
+        self.int_c3 = nn.Linear(10, 1)
 
         if bn:
             self.layers = nn.Sequential(
@@ -102,7 +102,7 @@ class conv_net(nn.Module):
         return self.layers(dense_inp)
 
 # net = code_net().cuda()
-net = conv_net(6, 16).cuda()
+net = conv_net(6, 16)
 
 def input_from_df(df, codebook):
 
@@ -115,7 +115,7 @@ def input_from_df(df, codebook):
 
     inp_arr = np.concatenate([inp_arr, codebook[df['code_inds'].values]], 1)
 
-    return torch.tensor(inp_arr, dtype=torch.float32).cuda()
+    return torch.tensor(inp_arr, dtype=torch.float32)
 
 # def input_from_df(df, codebook):
 
@@ -126,21 +126,21 @@ def input_from_df(df, codebook):
 #     inp_arr = df[input_keys].values
 #     inp_arr = (inp_arr - np.array(offsets))/np.array(scales)
 
-#     return torch.tensor(inp_arr, dtype=torch.float32).cuda()
+#     return torch.tensor(inp_arr, dtype=torch.float32)
 
 # Cell
 def train_metric_net(net, model, decode_dl, post_proc, micro, point_process, cfg):
 
-    bce = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cfg.pos_weight]).cuda())
+    bce = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([cfg.pos_weight]))
     opt = torch.optim.AdamW(net.parameters(), lr = 4e-3)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=100, gamma=0.5)
     test_csv = pd.read_csv(cfg.test_csv)
     codebook, targets = hydra.utils.instantiate(cfg.codebook)
-    model.cuda()
+    model.to(cfg.device.gpu_device)
     test_csv['int_ratio'] = sel_int_ch(test_csv, codebook)['int_ratio']
 
     ignores = [int(a) for a in str(cfg.ignore)]
-    zero_out = torch.ones(9).cuda()
+    zero_out = torch.ones(9)
     zero_out[ignores] = 0
 
     for i in tqdm(range(cfg.num_iters)):
@@ -152,7 +152,7 @@ def train_metric_net(net, model, decode_dl, post_proc, micro, point_process, cfg
             zcrop, ycrop, xcrop = ret_dict['crop_z'], ret_dict['crop_y'], ret_dict['crop_x']
             background = background * micro.get_ch_mult()
             if cfg.sim.bg_estimation.shuffle_ch:
-                background = background.index_select(1, torch.randperm(background.shape[1]).cuda())
+                background = background.index_select(1, torch.randperm(background.shape[1]).to(background.device))
 
             if cfg.genm.microscope.col_shifts_enabled  :
                 zcrop, ycrop, xcrop = ret_dict['crop_z'], ret_dict['crop_y'], ret_dict['crop_x']
@@ -186,7 +186,7 @@ def train_metric_net(net, model, decode_dl, post_proc, micro, point_process, cfg
             gt_df = sample_to_df(*gt_vars, sim_vars[-1], px_size_zyx=[1.,1.,1.])
             gt_df = gt_df[gt_df['code_inds'] < len(codebook)]
 
-            res_dict = model(net_inp.cuda())
+            res_dict = model(net_inp)
             res_dict = model.tensor_to_dict(res_dict)
             pred_df = post_proc.get_df(res_dict)
             pred_df = pred_df[pred_df['code_inds'] < len(codebook)]
@@ -219,7 +219,7 @@ def train_metric_net(net, model, decode_dl, post_proc, micro, point_process, cfg
 #         net_inp *= zero_out[None]
         net_out = net(net_inp)
 
-        net_tar = torch.tensor(pred_df['class'].values, dtype=torch.float32).cuda()
+        net_tar = torch.tensor(pred_df['class'].values, dtype=torch.float32).to(net_inp.device)
         loss = bce(net_out, net_tar[:,None])
 
         test_csv['net_score'] = torch.sigmoid(net(input_from_df(test_csv, codebook)).detach().cpu())

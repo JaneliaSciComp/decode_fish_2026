@@ -40,9 +40,9 @@ def my_app(cfg):
     
     path = Path(model_cfg.output.save_dir)
     load_model_state(model, path/f'model.pkl')
-    micro.load_state_dict(torch.load(path/'microscope.pkl'), strict=False)
+    micro.load_state_dict(torch.load(path/'microscope.pkl', weights_only=False), strict=False)
     
-    model.eval().cuda()
+    model.eval().to(cfg.device.gpu_device)
     
     
     image_paths = sorted(glob.glob(cfg.image_path))

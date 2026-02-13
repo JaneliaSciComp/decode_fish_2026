@@ -34,10 +34,10 @@ def my_app(cfg):
     
     ''' Get DECODE preds (2 models) '''
     
-    model_0 = hydra.utils.instantiate(cfg.model).cuda()
+    model_0 = hydra.utils.instantiate(cfg.model).to(cfg.device.gpu_device)
     model_0 = load_model_state(model_0, Path(cfg.model_path_0)/'model.pkl')
-    
-    model_1 = hydra.utils.instantiate(cfg.model).cuda()
+
+    model_1 = hydra.utils.instantiate(cfg.model).to(cfg.device.gpu_device)
     model_1 = load_model_state(model_1, Path(cfg.model_path_1)/'model.pkl')    
     
     dec_df_0_raw = predict(model_0, post_proc, image_paths, sm_fish_ch=0, window_size=[None, 128, 128], device='cuda')

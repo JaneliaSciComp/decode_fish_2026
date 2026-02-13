@@ -1,0 +1,28 @@
+name: decode_fish
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - pip
+  - pytorch>=2.0
+  - torchvision
+  - pytorch-cuda=11.8
+  - h5py
+  - matplotlib
+  - pandas
+  - pyyaml
+  - scipy
+  - scikit-image
+  - seaborn
+  - tifffile
+  - tqdm
+  - numba
+  - ipykernel
+  - pip:
+      - monai
+      - wandb
+      - hydra-core>=1.3
+      - scikit-learn

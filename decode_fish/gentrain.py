@@ -66,12 +66,12 @@ def my_app(cfg):
     
     if cfg.data_path.model_init is not None:
         print('loading')
-        model = load_model_state(model, Path(cfg.data_path.model_init)/'model.pkl').cuda()
+        model = load_model_state(model, Path(cfg.data_path.model_init)/'model.pkl').to(cfg.device.gpu_device)
         '''temp disable'''
         # micro.load_state_dict(torch.load(Path(cfg.data_path.model_init)/'microscope.pkl'), strict=False)
             
     if cfg.data_path.micro_init is not None:
-        micro.load_state_dict(torch.load(cfg.data_path.micro_init), strict=False)
+        micro.load_state_dict(torch.load(cfg.data_path.micro_init, weights_only=False), strict=False)
         
     gen_train(cfg=cfg,
          model=model, 

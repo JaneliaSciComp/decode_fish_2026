@@ -14,6 +14,12 @@ from .emitter_io import *
 import pandas as pd
 
 # Cell
+def get_smfish_codebook():
+    codebook = np.array([[1]])
+    targets = np.array(['gene'])
+    return codebook, targets
+
+# Cell
 def simfish_to_df(sim_file, frame_idx=0, int_fac=1.05):
 
     yxzi = []

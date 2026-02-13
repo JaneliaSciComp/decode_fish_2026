@@ -35,7 +35,7 @@ def my_app(cfg):
     out_file = cfg.out_file
     
     model = hydra.utils.instantiate(cfg.model)
-    model.cuda()
+    model.to(cfg.device.gpu_device)
     
     post_proc = hydra.utils.instantiate(cfg.post_proc_isi)
     
@@ -73,7 +73,7 @@ def my_app(cfg):
                     with torch.no_grad():
                         for m in model_names:
                             model = load_model_state(model, Path(model_dir + m)/'model.pkl')
-                            dec_df = shift_df(post_proc.get_df(model.tensor_to_dict(model(img[sl][None].cuda()))), [-100,-100,-300])
+                            dec_df = shift_df(post_proc.get_df(model.tensor_to_dict(model(img[sl][None].to(cfg.device.gpu_device)))), [-100,-100,-300])
                             df_col[m] = append_emitter_df(df_col[m], dec_df)
                             free_mem()
 
@@ -112,7 +112,7 @@ def my_app(cfg):
                 with torch.no_grad():
                     for m in model_names:
                         model = load_model_state(model, Path(model_dir + m)/'model.pkl')
-                        res_dict = model.tensor_to_dict(model(img[None].cuda()))
+                        res_dict = model.tensor_to_dict(model(img[None].to(cfg.device.gpu_device)))
                         dec_df = shift_df(post_proc.get_df(res_dict), [-100,-100,-300])
                         df_col[m] = nm_to_px(dec_df, px_size_zyx=[300,100,100])
                         free_mem()
@@ -179,7 +179,7 @@ def my_app(cfg):
                 gg.create_dataset('init_psf', data=cpu(psf_init.psf_volume[0]))     
                 
                 _, _, micro = load_psf_noise_micro(train_cfg)
-                micro.load_state_dict(torch.load(model_dir + m + '/microscope.pkl'))
+                micro.load_state_dict(torch.load(model_dir + m + '/microscope.pkl', weights_only=False))
                 gg.create_dataset('fit_psf', data=cpu(micro.psf.psf_volume[0]))               
                 
 if __name__ == "__main__":

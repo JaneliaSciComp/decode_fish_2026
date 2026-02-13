@@ -3,7 +3,7 @@ model_path:
 image_path: 
          
 model:
-    _target_: decode_fish.engine.model.UnetDecodeNoBn
+    _target_: decode_fish.engine.model.UnetDecodeNoBn_2S
     depth: 2
     f_maps: 32
     inp_scale: 

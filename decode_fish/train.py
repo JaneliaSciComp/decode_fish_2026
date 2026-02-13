@@ -71,11 +71,11 @@ def my_app(cfg):
     
     if cfg.data_path.model_init is not None:
         print('loading')
-        model = load_model_state(model, Path(cfg.data_path.model_init)/'model.pkl').cuda()
+        model = load_model_state(model, Path(cfg.data_path.model_init)/'model.pkl').to(cfg.device.gpu_device)
         # micro.load_state_dict(torch.load(Path(cfg.data_path.model_init)/'microscope.pkl'), strict=False)
 
         if cfg.training.net.enabled:
-            train_state_dict = torch.load(Path(cfg.data_path.model_init)/'training_state.pkl')
+            train_state_dict = torch.load(Path(cfg.data_path.model_init)/'training_state.pkl', weights_only=False)
             for k in optim_dict:
                 if 'net' in k:
                     optim_dict[k].load_state_dict(train_state_dict[k])    
@@ -83,9 +83,9 @@ def my_app(cfg):
             cfg.training.start_iter = train_state_dict['train_iter']
             
     if cfg.data_path.micro_init is not None:
-        micro.load_state_dict(torch.load(Path(cfg.data_path.micro_init)/'microscope.pkl'), strict=False)
-        
-        train_state_dict = torch.load(Path(cfg.data_path.micro_init)/'training_state.pkl')
+        micro.load_state_dict(torch.load(Path(cfg.data_path.micro_init)/'microscope.pkl', weights_only=False), strict=False)
+
+        train_state_dict = torch.load(Path(cfg.data_path.micro_init)/'training_state.pkl', weights_only=False)
         for k in optim_dict:
             if 'mic' in k or 'psf' in k:
                 optim_dict[k].load_state_dict(train_state_dict[k])    

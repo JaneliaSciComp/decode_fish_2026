@@ -38,7 +38,7 @@ def rescale_train(cfg,
           optim_dict):
 
     save_dir = Path(cfg.output.save_dir)
-    model.cuda()
+    model.to(cfg.device.gpu_device)
 
     # Controls which genmodel parameters are optimized
     for name, p in micro.named_parameters():
@@ -79,7 +79,7 @@ def rescale_train(cfg,
 
             target_mean_int = cfg.genm.intensity_dist.int_conc / cfg.genm.intensity_dist.int_rate + cfg.genm.intensity_dist.int_loc
 
-            int_means = torch.ones(cfg.genm.exp_type.n_channels).cuda()
+            int_means = torch.ones(cfg.genm.exp_type.n_channels).to(micro.sc_fac.device)
             for i in range(cfg.genm.exp_type.n_channels):
                 if i in ch_inds:
                     int_means[i] = int_vals[ch_inds == i].mean()

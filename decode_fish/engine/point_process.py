@@ -50,7 +50,7 @@ class PointProcessUniform(Distribution):
         y_offset = torch.cat([i[2] for i in res_], dim=0)
         z_offset = torch.cat([i[3] for i in res_], dim=0)
         intensities = torch.cat([i[4] for i in res_], dim=0)
-        codes = torch.cat([i[6] for i in res_], dim=0) if from_code_book else None
+        codes = torch.cat([i[6] for i in res_], dim=0) if (from_code_book and res_[0][6] is not None) else None
 
         return list(locations.T), x_offset, y_offset, z_offset, intensities, res_[0][5], codes
 
@@ -85,8 +85,8 @@ class PointProcessUniform(Distribution):
 
         locations = locations.nonzero(as_tuple=False)
 
+        code_draw = None
         if self.n_channels > 1:
-            code_draw = None
             if from_code_book:
 
                 code_draw = torch.multinomial(self.code_weight, num_samples=n_emitter, replacement=True)
@@ -99,7 +99,8 @@ class PointProcessUniform(Distribution):
                 ch_draw.scatter_(index=m_draw.to(self.device), dim=1, value=1)
 
             intensities = intensities.to(self.device) * ch_draw.to(self.device)
-            output_shape.insert(1, self.n_channels)
+
+        output_shape.insert(1, self.n_channels)
 
         return locations, x_offset, y_offset, z_offset, intensities, tuple(output_shape), code_draw
 
@@ -116,7 +117,7 @@ def get_phased_ints(ints, ch_cols, n_cols):
 
     col_inds = []
     for i in range(n_cols):
-        col_inds.append(torch.where(torch.tensor(ch_cols)==i)[0].cuda()) # Get indices of the different colors
+        col_inds.append(torch.where(torch.tensor(ch_cols)==i)[0].to(ints.device)) # Get indices of the different colors
         col_inds[i][-1] = 0 # Set last index to 0 because it won't phase
 
     nonz_inds = ints.nonzero()
@@ -127,7 +128,7 @@ def get_phased_ints(ints, ch_cols, n_cols):
     for c in range(n_cols):
         for n in range(len(col_inds[c]) - 1):
             idx = torch.where(nonz_inds[:,1] == col_inds[c][n])[0]
-            phased_inds[idx] = torch.stack([nonz_inds[idx][:,0], torch.ones(len(idx), dtype=torch.int32).cuda() * (col_inds[c][n+1])], 1)
+            phased_inds[idx] = torch.stack([nonz_inds[idx][:,0], torch.ones(len(idx), dtype=torch.int32, device=ints.device) * (col_inds[c][n+1])], 1)
 
     phased_ints[tuple([phased_inds[:,0], phased_inds[:,1]])] += ints[tuple([nonz_inds[:,0], nonz_inds[:,1]])]
     phased_ints[:,0] = 0.

@@ -121,7 +121,7 @@ def train(cfg,
     save_dir = Path(cfg.output.save_dir)
     bench_df = None
 
-    model.cuda().train()
+    model.to(cfg.device.gpu_device).train()
 
     # Load codebook
     codebook, targets = hydra.utils.instantiate(cfg.codebook)
@@ -177,7 +177,7 @@ def train(cfg,
 
         # Shuffle background across channels so the network doesn't overfit to much
         if cfg.sim.bg_estimation.shuffle_ch:
-            background = background.index_select(1, torch.randperm(background.shape[1]).cuda())
+            background = background.index_select(1, torch.randperm(background.shape[1]).to(background.device))
 
 #         print('DL, ', time.time()-t0); t0 = time.time()
 
@@ -201,8 +201,9 @@ def train(cfg,
             ch_inp = list(micro.get_single_ch_inputs(*sim_vars[:-1], ycrop=ycrop, xcrop=xcrop))
 
             # Add random noise to multiple psfs belonging to the same barcode such that the mean position (which is the network target) remains unchanged
+            code_cond = sim_vars[-1] < len(codebook) if sim_vars[-1] is not None else None
             ch_inp[1], ch_inp[2], ch_inp[3] = add_pos_noise([ch_inp[1], ch_inp[2], ch_inp[3]],
-                                                            [cfg.genm.pos_noise.pos_noise_xy, cfg.genm.pos_noise.pos_noise_xy, cfg.genm.pos_noise.pos_noise_z], cfg.genm.exp_type.n_bits, sim_vars[-1] < len(codebook))
+                                                            [cfg.genm.pos_noise.pos_noise_xy, cfg.genm.pos_noise.pos_noise_xy, cfg.genm.pos_noise.pos_noise_z], cfg.genm.exp_type.n_bits, code_cond)
 
             # Generate simulated images
             xsim = micro(*ch_inp, add_noise=True)
@@ -273,7 +274,7 @@ def train(cfg,
 
                     target_mean_int = cfg.genm.intensity_dist.int_conc / cfg.genm.intensity_dist.int_rate + cfg.genm.intensity_dist.int_loc
 
-                    int_means = torch.ones(cfg.genm.exp_type.n_channels).cuda()
+                    int_means = torch.ones(cfg.genm.exp_type.n_channels).to(micro.sc_fac.device)
 
                     # Collect inensities across channels
                     for i in range(cfg.genm.exp_type.n_channels):
@@ -429,4 +430,6 @@ def train(cfg,
 
 #             print('Log., ', time.time()-t0); t0 = time.time()
 
+    # Always save final state
+    save_train_state(save_dir, model, micro, optim_dict, batch_idx)
     wandb.finish()

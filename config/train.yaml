@@ -1,4 +1,4 @@
-base_dir: /groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deepstorm/
+base_dir: ${oc.env:DECODE_BASE_DIR,..}
 run_name: test/test_sub
 sub_name: 
 cfg_path: ${base_dir}/decode_fish/config/train.yaml

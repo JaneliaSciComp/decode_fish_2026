@@ -1,4 +1,4 @@
 import torch
 
-tra = torch.zeros(5).cuda()
+tra = torch.zeros(5, device='cuda')
 print(tra)

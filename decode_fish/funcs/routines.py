@@ -73,9 +73,9 @@ def get_prediction(model, vol, post_proc, col_offset_map=None, micro=None, cuda=
     with torch.no_grad():
 
         vol = vol[(None,)*(5-vol.ndim)]
-        model.eval().cuda() if cuda else model.eval().cpu()
+        model.eval().to('cuda') if cuda else model.eval().cpu()
         net_inp = torch.concat([vol,col_offset_map], 1) if col_offset_map is not None else vol
-        res_dict = model(net_inp.cuda()) if cuda else model(net_inp)
+        res_dict = model(net_inp.to('cuda')) if cuda else model(net_inp)
         res_dict = model.tensor_to_dict(res_dict)
         pred_df = post_proc.get_df(res_dict)
 

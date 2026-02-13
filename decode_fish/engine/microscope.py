@@ -53,7 +53,7 @@ class Microscope(nn.Module):
         super().__init__()
 
         self.psf = psf
-        self.psf_init_vol = psf.psf_volume.detach().to('cuda') + 0
+        self.psf_init_vol = psf.psf_volume.detach().clone()
         self.psf_z_size = self.psf.psf_volume.shape[-3]
 
         self.scale = scale
@@ -82,10 +82,10 @@ class Microscope(nn.Module):
             self.register_parameter(name='color_shifts', param=torch.nn.Parameter(torch.zeros([self.psf.n_cols, ys, xs])))
 
         self.register_parameter(name='channel_shifts', param=torch.nn.Parameter(torch.zeros((int(self.noise.n_channels/self.psf.n_cols), 3))))
-        self.ch_scale = 1. if ch_facs is None else torch.tensor(ch_facs).cuda()
-        self.register_parameter(name='channel_facs', param=torch.nn.Parameter(torch.ones(int(self.noise.n_channels)).cuda()))
+        self.ch_scale = 1. if ch_facs is None else torch.tensor(ch_facs)
+        self.register_parameter(name='channel_facs', param=torch.nn.Parameter(torch.ones(int(self.noise.n_channels))))
         self.register_parameter(name='z_facs', param=self.psf.z_scale)
-        self.register_parameter(name='sc_fac', param=torch.nn.Parameter(torch.ones(1).cuda()))
+        self.register_parameter(name='sc_fac', param=torch.nn.Parameter(torch.ones(1)))
         self.register_parameter(name='theta_par', param=self.noise.theta_par)
 
     def get_ch_mult(self):
@@ -129,8 +129,8 @@ class Microscope(nn.Module):
         blurred_col_shift = kornia.filters.gaussian_blur2d(self.color_shifts[None],  (9,9), (3,3))[0]
 
         # Select the right element from the downsampled shift map for each emitter
-        col_shifts = blurred_col_shift[:, torch.div(locations[2][ch_inds[0]] + ycrop.cuda()[locations[0]], self.col_shift_ds, rounding_mode='trunc'),
-                                          torch.div(locations[3][ch_inds[0]] + xcrop.cuda()[locations[0]], self.col_shift_ds, rounding_mode='trunc')]
+        col_shifts = blurred_col_shift[:, torch.div(locations[2][ch_inds[0]] + ycrop.to(blurred_col_shift.device)[locations[0]], self.col_shift_ds, rounding_mode='trunc'),
+                                          torch.div(locations[3][ch_inds[0]] + xcrop.to(blurred_col_shift.device)[locations[0]], self.col_shift_ds, rounding_mode='trunc')]
 
         # Shift emitters in color channel 1
         x_os_val[col_inds==1] = x_os_val[col_inds==1] + col_shifts[0, col_inds==1]
@@ -162,6 +162,12 @@ class Microscope(nn.Module):
 
                     x_os_val, y_os_val = self.apply_color_shifts(ch_inds, locations, x_os_val, y_os_val, ycrop, xcrop)
 
+            else:
+                # Single-channel: still need 5D locations (batch, channel, z, y, x)
+                i_val = i_val[ch_inds]
+                locations = [l[ch_inds[0]] for l in locations]
+                locations.insert(1, ch_inds[1])
+
         else:
             locations.insert(1,locations[0])
 
@@ -177,7 +183,7 @@ class Microscope(nn.Module):
                 # If we do slice rec z_os_ch which has a range of [-1,1] (from simulations or network output) is turned into an index for a slice from the psf_volume and a continuous offset
                 z_os_ch = torch.clamp(0.5*z_os_ch,-0.49999,0.49999) + 0.5 # transform to [0,1]
                 z_scaled = z_os_ch * (self.psf_z_size - 2) # [0, z_size]
-                z_inds = (torch.div(z_scaled, 1, rounding_mode='trunc')).type(torch.cuda.LongTensor) + 1
+                z_inds = (torch.div(z_scaled, 1, rounding_mode='trunc')).to(dtype=torch.long) + 1
                 z_os = -(torch.fmod(z_scaled, 1.)) + 0.5
 
                 psf = self.psf(x_os_ch, y_os_ch, z_os, z_inds, c_inds=col_inds)
@@ -218,7 +224,7 @@ class Microscope(nn.Module):
 
         else:
 
-            return torch.zeros(output_shape).cuda()
+            return torch.zeros(output_shape, device=self.sc_fac.device)
 
 # Cell
 def place_psf(locations, psf_volume, output_shape):
@@ -276,11 +282,12 @@ def get_roi_filt_inds(batch, ch, z, y, x, psf_shape, vol_shape, min_dist=None, s
 
     psf_d, psf_h, psf_w = psf_shape[-3:]
     vol_d, vol_h, vol_w = vol_shape[-3:]
-    # Filter locs at the edges
-    cond = (x > psf_w//2) & (x < vol_w - psf_w//2)
-    cond*= (y > psf_h//2) & (y < vol_h - psf_h//2)
+    # Filter locs at the edges (move to CPU for numpy/scipy compat)
+    x_c, y_c, z_c = cpu(x), cpu(y), cpu(z)
+    cond = (x_c > psf_w//2) & (x_c < vol_w - psf_w//2)
+    cond*= (y_c > psf_h//2) & (y_c < vol_h - psf_h//2)
     if not slice_rec:
-        cond*= (z > psf_d//2) & (z < vol_d - psf_d)
+        cond*= (z_c > psf_d//2) & (z_c < vol_d - psf_d)
 
     if min_dist:
         return np.setdiff1d(inds[cond], pair_inds, assume_unique=True)

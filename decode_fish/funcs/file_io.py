@@ -33,7 +33,7 @@ def load_psf_noise_micro(cfg):
 
     psf = hydra.utils.instantiate(cfg.genm.PSF)
     noise = hydra.utils.instantiate(cfg.genm.noise)
-    micro = hydra.utils.instantiate(cfg.genm.microscope, psf=psf, noise=noise).cuda()
+    micro = hydra.utils.instantiate(cfg.genm.microscope, psf=psf, noise=noise)
 
     return micro
 
@@ -42,7 +42,7 @@ def load_model_state(model, path):
     """
     Loads the network parameters and the scaling into the model given a path.
     """
-    model_dict = torch.load(path)
+    model_dict = torch.load(path, weights_only=False)
     model.load_state_dict(model_dict['state_dict'], strict=False)
     model.inp_scale = model_dict['scaling'][0]
     model.inp_offset = model_dict['scaling'][1]
@@ -58,6 +58,10 @@ def get_dataloader(cfg):
             imgs_5d = torch.cat([hydra.utils.instantiate(cfg.data_path.image_proc.override, image_path=f) for f in sorted(glob.glob(cfg.data_path.image_path))], 0)
         else:
             imgs_5d   = torch.cat([load_tiff_image(f)[None] for f in sorted(glob.glob(cfg.data_path.image_path))], 0)
+
+        # Add channel dim for single-channel 3D (ZYX) images: (N,Z,H,W) -> (N,1,Z,H,W)
+        if imgs_5d.ndim == 4:
+            imgs_5d = imgs_5d.unsqueeze(1)
 
         if imgs_5d.ndim > 5:
             imgs_5d = imgs_5d.view(-1, *(imgs_5d.size()[2:]))
@@ -114,7 +118,7 @@ def load_all(cfg, load_ds=True):
     model = load_model_state(model, path/'model.pkl')
     post_proc = hydra.utils.instantiate(cfg.post_proc_isi)
     micro = load_psf_noise_micro(cfg)
-    micro.load_state_dict(torch.load(path/'microscope.pkl'), strict=False)
+    micro.load_state_dict(torch.load(path/'microscope.pkl', weights_only=False), strict=False)
     if load_ds:
         imgs_5d, decode_dl = get_dataloader(cfg)
     else:

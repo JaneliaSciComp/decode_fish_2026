@@ -23,15 +23,14 @@ from omegaconf import open_dict
 from hydra import compose, initialize
 from .merfish_eval import *
 
-sys.path.append('/groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deepstorm/FQ/istdeco/')
+try:
+    from istdeco import ISTDeco
+    from utils import random_codebook, random_image_stack
+    from codebook import Codebook
+except ImportError:
+    warnings.warn("istdeco not found — MERFISH comparison functions will not work")
 
-from istdeco import ISTDeco
-from utils import random_codebook, random_image_stack
-from codebook import Codebook
-# from starfish.image import Filter
-
-sys.path.append('/groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deepstorm/FQ/bardensr/')
-# import bardensr # Crashes kernel?
+# import bardensr # Optional dependency
 
 import optuna
 optuna.logging.set_verbosity(optuna.logging.INFO)
@@ -71,7 +70,7 @@ def get_istdeco_df(volume, codebook, psf_sig=(1.7, 1.7), n_iter=100, bg=100., de
                 'code_inds': code_id
         })
 
-        istd_results = istd_results.append(df)
+        istd_results = pd.concat([istd_results, df])
 
     istd_results = px_to_nm(istd_results)
 
@@ -123,7 +122,7 @@ def get_bardensr_df(evd_tensors, th, ps=1.0):
                     'code_inds': code_inds
             })
 
-        bard_results = bard_results.append(df)
+        bard_results = pd.concat([bard_results, df])
 
     bard_results = px_to_nm(bard_results)
     return bard_results

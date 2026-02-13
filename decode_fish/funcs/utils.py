@@ -11,6 +11,7 @@ from itertools import product as iter_product
 from tifffile import imread
 from scipy import stats
 import kornia
+import torch.nn.functional as F
 
 import gc
 import random
@@ -88,8 +89,8 @@ def load_tiff_from_list(path_list):
 
 # Cell
 def gpu(x):
-    '''Transforms numpy array or torch tensor torch torch.cuda.FloatTensor'''
-    return torch.cuda.FloatTensor(x).cuda()
+    '''Transforms numpy array or torch tensor to float tensor on default CUDA device'''
+    return torch.as_tensor(x, dtype=torch.float32).cuda()
 
 def cpu(x):
     '''Transforms torch tensor into numpy array'''
@@ -167,10 +168,10 @@ def generate_perlin_noise_2d_torch(shape, res, device='cpu'):
     delta = (res[0] / shape[0], res[1] / shape[1])
     d = (shape[0] // res[0], shape[1] // res[1])
     grid = torch.stack(torch.meshgrid(torch.arange(0, res[0], delta[0], device=device),
-                                      torch.arange(0, res[1], delta[1], device=device)), dim = -1) % 1
+                                      torch.arange(0, res[1], delta[1], device=device), indexing='ij'), dim = -1) % 1
     # Gradients
     angles = 2*np.pi*torch.rand(res[0]+1, res[1]+1).to(device)
-    gradients = torch.stack((torch.cos(angles), torch.sin(angles)),  axis=2).to(device)
+    gradients = torch.stack((torch.cos(angles), torch.sin(angles)),  dim=2).to(device)
     gradients = gradients.repeat_interleave(d[0], 0).repeat_interleave(d[1], 1)
     g00 = gradients[    :-d[0],    :-d[1]]
     g10 = gradients[d[0]:     ,    :-d[1]]
@@ -209,12 +210,12 @@ def generate_perlin_noise_3d_torch(shape, res, device='cpu'):
 
     grid = torch.stack(torch.meshgrid(torch.arange(0, res[0], delta[0], device=device),
                                       torch.arange(0, res[1], delta[1], device=device),
-                                      torch.arange(0, res[2], delta[2], device=device)), dim = -1) % 1
+                                      torch.arange(0, res[2], delta[2], device=device), indexing='ij'), dim = -1) % 1
 
     theta = 2*np.pi*torch.rand(res[0]+1, res[1]+1, res[2]+1).to(device)
     phi = 2*np.pi*torch.rand(res[0]+1, res[1]+1, res[2]+1).to(device)
 
-    gradients = torch.stack((torch.sin(phi)*torch.cos(theta), torch.sin(phi)*torch.sin(theta), torch.cos(phi)), axis=3)
+    gradients = torch.stack((torch.sin(phi)*torch.cos(theta), torch.sin(phi)*torch.sin(theta), torch.cos(phi)), dim=3)
     gradients[-1] = gradients[0]
 
     g000 = gradients[0:-1,0:-1,0:-1].repeat_interleave(d[0], 0).repeat_interleave(d[1], 1).repeat_interleave(d[2], 2)
@@ -226,14 +227,14 @@ def generate_perlin_noise_3d_torch(shape, res, device='cpu'):
     g011 = gradients[0:-1,1:  ,1:  ].repeat_interleave(d[0], 0).repeat_interleave(d[1], 1).repeat_interleave(d[2], 2)
     g111 = gradients[1:  ,1:  ,1:  ].repeat_interleave(d[0], 0).repeat_interleave(d[1], 1).repeat_interleave(d[2], 2)
 #     # Ramps
-    n000 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]  , grid[:,:,:,2]  ), axis=3) * g000, 3)
-    n100 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]  , grid[:,:,:,2]  ), axis=3) * g100, 3)
-    n010 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]-1, grid[:,:,:,2]  ), axis=3) * g010, 3)
-    n110 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]-1, grid[:,:,:,2]  ), axis=3) * g110, 3)
-    n001 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]  , grid[:,:,:,2]-1), axis=3) * g001, 3)
-    n101 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]  , grid[:,:,:,2]-1), axis=3) * g101, 3)
-    n011 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]-1, grid[:,:,:,2]-1), axis=3) * g011, 3)
-    n111 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]-1, grid[:,:,:,2]-1), axis=3) * g111, 3)
+    n000 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]  , grid[:,:,:,2]  ), dim=3) * g000, 3)
+    n100 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]  , grid[:,:,:,2]  ), dim=3) * g100, 3)
+    n010 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]-1, grid[:,:,:,2]  ), dim=3) * g010, 3)
+    n110 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]-1, grid[:,:,:,2]  ), dim=3) * g110, 3)
+    n001 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]  , grid[:,:,:,2]-1), dim=3) * g001, 3)
+    n101 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]  , grid[:,:,:,2]-1), dim=3) * g101, 3)
+    n011 = torch.sum(torch.stack((grid[:,:,:,0]  , grid[:,:,:,1]-1, grid[:,:,:,2]-1), dim=3) * g011, 3)
+    n111 = torch.sum(torch.stack((grid[:,:,:,0]-1, grid[:,:,:,1]-1, grid[:,:,:,2]-1), dim=3) * g111, 3)
 #     # Interpolation
     t = f(grid)
     n00 = n000*(1-t[:,:,:,0]) + t[:,:,:,0]*n100
@@ -257,9 +258,8 @@ def generate_fractal_noise_3d_torch(shape, res, octaves=1, persistence=0.5, devi
 # Cell
 def get_color_shift_inp(color_shifts, outp_size=[2048,2048], ycrop=0, xcrop=0, window_size=None):
 
-    upsamp = torch.nn.UpsamplingBilinear2d(size = [2048,2048])
     colshift_inp = kornia.filters.gaussian_blur2d(color_shifts[None],  (9,9), (3,3))
-    colshift_inp = upsamp(colshift_inp)
+    colshift_inp = F.interpolate(colshift_inp, size=[2048,2048], mode='bilinear', align_corners=False)
     colshift_inp = colshift_inp.detach()
 
     if window_size:

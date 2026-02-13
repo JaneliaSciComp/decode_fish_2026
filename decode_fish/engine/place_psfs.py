@@ -53,8 +53,9 @@ class CudaPlaceROI(torch.autograd.Function):
     @staticmethod
     def forward(ctx, rois, frame_s_b, frame_s_c, frame_s_z, frame_s_y, frame_s_x, roi_s_n, roi_s_z, roi_s_y, roi_s_x, b, c, z, y, x):
 
-        frames = torch.zeros([frame_s_b, frame_s_c, frame_s_z, frame_s_y, frame_s_x]).to('cuda')
-        rois_grads = torch.zeros([roi_s_n, roi_s_z, roi_s_y, roi_s_x]).to('cuda')
+        device = rois.device
+        frames = torch.zeros([frame_s_b, frame_s_c, frame_s_z, frame_s_y, frame_s_x], device=device)
+        rois_grads = torch.zeros([roi_s_n, roi_s_z, roi_s_y, roi_s_x], device=device)
 
         threadsperblock = 256
         blocks = ((roi_s_n * roi_s_z * roi_s_y * roi_s_x) + (threadsperblock - 1)) // threadsperblock

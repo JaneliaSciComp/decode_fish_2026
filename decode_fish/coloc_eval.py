@@ -49,8 +49,8 @@ def my_app(cfg):
     
     ''' Get DECODE preds (6 models) '''
     
-    model_0 = hydra.utils.instantiate(cfg.model).cuda()
-    model_1 = hydra.utils.instantiate(cfg.model).cuda()
+    model_0 = hydra.utils.instantiate(cfg.model).to(cfg.device.gpu_device)
+    model_1 = hydra.utils.instantiate(cfg.model).to(cfg.device.gpu_device)
 
     dec_df_0 = DF()
     dec_df_1 = DF()
@@ -76,7 +76,7 @@ def my_app(cfg):
     
     ''' Get FQ preds'''
     
-    base_dir = '/groups/turaga/home/speisera/Mackebox/Artur/WorkDB/deepstorm/datasets/CodFish/raw_data_for_codetection'
+    base_dir = os.environ.get('CODFISH_DATA_DIR', 'datasets/CodFish/raw_data_for_codetection')
     
     fq0_paths = sorted(glob.glob(str(Path(base_dir + '/detections_for_codetection/YFP_ch1/*.csv'))))
     fq1_paths = sorted(glob.glob(str(Path(base_dir + '/detections_for_codetection/dlg1_ch2/*.csv'))))

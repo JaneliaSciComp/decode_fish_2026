@@ -31,7 +31,7 @@ def my_app(cfg):
     
     post_proc.codebook = expand_codebook(codebook)
     
-    net = conv_net(6, codebook.shape[1], bn=cfg.batch_norm).cuda()
+    net = conv_net(6, codebook.shape[1], bn=cfg.batch_norm).to(cfg.device.gpu_device)
     #net = code_net(9).cuda()
     
     code_weight = torch.ones(len(post_proc.codebook))

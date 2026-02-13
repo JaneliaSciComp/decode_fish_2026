@@ -4,7 +4,7 @@ from decode_fish.funcs.emitter_io import *
 from decode_fish.funcs.utils import *
 from decode_fish.funcs.dataset import *
 from decode_fish.funcs.output_trafo import *
-from decode_fish.engine.model import UnetDecodeNoBn
+from decode_fish.engine.model import UnetDecodeNoBn_2S
 from decode_fish.funcs.predict import predict
 import wandb
 

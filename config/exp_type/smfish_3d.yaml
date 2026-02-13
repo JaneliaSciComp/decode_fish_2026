@@ -5,3 +5,6 @@ is_2D: False
 pred_z: True
 channels: 1
 n_bits: 1
+
+codebook:
+    _target_: decode_fish.funcs.exp_specific.get_smfish_codebook

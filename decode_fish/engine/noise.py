@@ -30,8 +30,8 @@ class GammaNoise(nn.Module):
             self.theta_scale = torch.tensor(theta)
             self.theta_par = torch.nn.Parameter(torch.ones(n_channels))
         else:
-            self.theta_scale = theta
-            self.theta_par = torch.nn.Parameter(torch.tensor(1.))
+            self.theta_scale = torch.tensor(theta)
+            self.theta_par = torch.nn.Parameter(torch.ones(1))
 
         self.baseline = baseline
         self.n_channels = n_channels

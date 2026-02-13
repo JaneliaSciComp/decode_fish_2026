@@ -28,9 +28,9 @@ class PointProcessGaussian(Distribution):
             xyzi_mu: shape (B,4,D,H,W)
             xyzi_sigma: shape (B,4,D,H,W)
         """
-        self.logits = logits.cuda()
-        self.xyzi_mu = xyzi_mu.cuda()
-        self.xyzi_sigma = xyzi_sigma.cuda()
+        self.logits = logits
+        self.xyzi_mu = xyzi_mu
+        self.xyzi_sigma = xyzi_sigma
 
     def log_prob(self, locations, x_offset, y_offset, z_offset, intensities, codes, n_channels, loss_option=0, int_inf='per_channel'):
 
@@ -41,7 +41,11 @@ class PointProcessGaussian(Distribution):
         batch_size = self.logits.shape[0]
         n_codes = self.logits.shape[1]
 
-        xyzi, gt_codes, s_mask = get_true_labels_mf(batch_size, locations, x_offset, y_offset, z_offset, intensities, codes.cuda(), int_inf)
+        if codes is None:
+            codes = torch.zeros(len(x_offset), dtype=torch.long, device=self.logits.device)
+        else:
+            codes = codes.to(self.logits.device)
+        xyzi, gt_codes, s_mask = get_true_labels_mf(batch_size, locations, x_offset, y_offset, z_offset, intensities, codes, int_inf)
 
         P = torch.sigmoid(self.logits)
 
@@ -52,11 +56,11 @@ class PointProcessGaussian(Distribution):
             count_var = (P - P ** 2).sum(dim=[2, 3, 4]).squeeze(-1)
             count_dist = D.Normal(count_mean, torch.sqrt(count_var))
 
-            counts = torch.zeros(count_mean.shape).cuda()
+            counts = torch.zeros(count_mean.shape, device=count_mean.device)
             unique_col = [gtc.unique(return_counts=True) for gtc in gt_codes]
             for i, ind_c in enumerate(unique_col):
                 inds, c = ind_c
-                counts[i, inds[inds>=0]] = c[inds>=0].type(torch.cuda.FloatTensor)
+                counts[i, inds[inds>=0]] = c[inds>=0].to(dtype=torch.float32)
 
             count_prob =  count_dist.log_prob(counts)
 
@@ -112,14 +116,15 @@ def get_sample_mask(bs, locations):
     counts_ = torch.unique(locations[0], return_counts=True)[1]
     batch_loc = torch.unique(locations[0])
 
-    counts = torch.cuda.LongTensor(bs).fill_(0)
+    device = locations[0].device
+    counts = torch.zeros(bs, dtype=torch.long, device=device)
 
     counts[batch_loc] = counts_
 
     max_counts = counts.max()
     if max_counts==0: max_counts = 1 #if all 0 will return empty matrix of correct size
     s_arr = cum_count_per_group(locations[0])
-    s_mask   = torch.cuda.FloatTensor(bs,max_counts).fill_(0)
+    s_mask   = torch.zeros(bs, max_counts, device=device)
     s_mask[locations[0],s_arr] = 1
 
     return s_mask, s_arr
@@ -131,9 +136,9 @@ def get_true_labels_mf(bs, locations, x_os, y_os, z_os, int_ch, codes, int_inf='
     s_mask, s_arr = get_sample_mask(bs, locations)
     max_counts = s_mask.shape[1]
 
-    x =  x_os + locations[-1].type(torch.cuda.FloatTensor)
-    y =  y_os + locations[-2].type(torch.cuda.FloatTensor)
-    z =  z_os + locations[-3].type(torch.cuda.FloatTensor)
+    x =  x_os + locations[-1].to(dtype=torch.float32)
+    y =  y_os + locations[-2].to(dtype=torch.float32)
+    z =  z_os + locations[-3].to(dtype=torch.float32)
 
     if int_inf == 'sum':
         intensity = int_ch.sum(-1)[:,None]
@@ -143,10 +148,11 @@ def get_true_labels_mf(bs, locations, x_os, y_os, z_os, int_ch, codes, int_inf='
         intensity = int_ch
 
     gt_vars = torch.cat([x[:,None], y[:,None], z[:,None], intensity], dim=1)
-    gt_list = torch.cuda.FloatTensor(bs,max_counts,gt_vars.shape[1]).fill_(0)
+    device = locations[0].device
+    gt_list = torch.zeros(bs, max_counts, gt_vars.shape[1], device=device)
     gt_list[locations[0],s_arr] = gt_vars
 
-    gt_codes = torch.cuda.LongTensor(bs,max_counts).fill_(0) - 1
+    gt_codes = torch.zeros(bs, max_counts, dtype=torch.long, device=device) - 1
     gt_codes[locations[0],s_arr] = codes
 
     return gt_list, gt_codes, s_mask

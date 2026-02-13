@@ -4,6 +4,11 @@
 .gitconfig
 *.bak
 *.log
+*.err
+models/
+example/*.tif
+example/celegans_test/
+example/celegans_inspect/
 *~
 ~*
 _tmp*

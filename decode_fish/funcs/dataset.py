@@ -313,10 +313,11 @@ class torch_gaussian_filter(torch.nn.Module):
         kernel = 1
         self.kernel_size = kernel_size
         meshgrids = torch.meshgrid(
-            [
+            *[
                 torch.arange(size, dtype=torch.float32)
                 for size in kernel_size
-            ]
+            ],
+            indexing='ij'
         )
         for size, std, mgrid in zip(kernel_size, sigma, meshgrids):
             mean = (size - 1) / 2

@@ -79,7 +79,7 @@ class LinearInterpolatedPSF(nn.Module):
             vol = vol[:,None]
 
         # Create the grids
-        i_img, x_grid, y_grid, z_grid = torch.meshgrid(torch.arange(N_em, dtype=torch.float32).to(self.device), self.x.to(self.device), self.y.to(self.device), z_g)
+        i_img, x_grid, y_grid, z_grid = torch.meshgrid(torch.arange(N_em, dtype=torch.float32).to(self.device), self.x.to(self.device), self.y.to(self.device), z_g, indexing='ij')
 
         if self.mode == 'bilinear':
 
@@ -99,7 +99,7 @@ class LinearInterpolatedPSF(nn.Module):
             m_grid = torch.stack([x_grid, y_grid, z_grid_shifted], -1)
             psf_out = torch.nn.functional.grid_sample(vol, m_grid, align_corners = False, mode='bilinear')
             psf_out = psf_out.transpose(-3,-1).transpose(1,2)[:,:,0] # Swap z into channel dim, and drop z dim.
-            i_img, x_grid, y_grid = torch.meshgrid(torch.arange(N_em, dtype=torch.float32).to(self.device), self.x.to(self.device), self.y.to(self.device))
+            i_img, x_grid, y_grid = torch.meshgrid(torch.arange(N_em, dtype=torch.float32).to(self.device), self.x.to(self.device), self.y.to(self.device), indexing='ij')
 
             x_grid = x_grid - x_offset[:, None, None]
             y_grid = y_grid - y_offset[:, None, None]
@@ -112,7 +112,7 @@ class LinearInterpolatedPSF(nn.Module):
     def get_com(self):
         """ Returns the center of mass of the squared volume."""
 
-        x_grid, y_grid, z_grid = torch.meshgrid(torch.arange(self.psf_size[0]),torch.arange(self.psf_size[1]),torch.arange(self.psf_size[2]))
+        x_grid, y_grid, z_grid = torch.meshgrid(torch.arange(self.psf_size[0]),torch.arange(self.psf_size[1]),torch.arange(self.psf_size[2]), indexing='ij')
         m_grid = torch.stack([x_grid, y_grid, z_grid], -1).to(self.device)
 
         vol = ((self.psf_volume[0])**2).to(self.device)

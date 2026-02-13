@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "decode_fish"
+version = "0.1.0"
+description = "DECODE for FISH"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Artur Speiser", email = "arturspeiser@googlemail.com"},
+]
+keywords = ["SMLM", "FISH", "deep learning"]
+
+# Dependencies are managed via conda environment.
+# This list is kept minimal for pip install -e . to work.
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["decode_fish*"]
