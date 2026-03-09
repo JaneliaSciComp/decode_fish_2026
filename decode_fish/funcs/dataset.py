@@ -383,22 +383,32 @@ class AddPerlinNoise(TransformBase):
         assert all(i <= self.shape for i in image.shape[-3:])
 
         res = self.res
-        bs_x_ch = image.shape[0] * image.shape[1]
 
-        color_chs = torch.tensor([0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0]).to(image.device)
-
-        if image.shape[-3] > 1:
-            fractal_noise = [generate_fractal_noise_3d_torch([self.shape,self.shape,self.shape], res, self.octaves, self.persistence, device=image.device) for _ in range(bs_x_ch)]
-            fractal_noise = torch.stack(fractal_noise)
-            fractal_noise = fractal_noise[:,:image.shape[-3],:image.shape[-2],:image.shape[-1]]
-
+        # Handle both 4D (channels, Z, H, W) and 5D (batch, channels, Z, H, W)
+        if image.ndim == 5:
+            n_noise = image.shape[0] * image.shape[1]  # batch * channels
+            spatial_shape = image.shape[-3:]
+        elif image.ndim == 4:
+            n_noise = image.shape[0]  # channels
+            spatial_shape = image.shape[-3:]
         else:
-            fractal_noise = [generate_fractal_noise_2d_torch([self.shape,self.shape], res, self.octaves, self.persistence, device=image.device) for _ in range(bs_x_ch)]
-            fractal_noise = torch.stack(fractal_noise)
-            fractal_noise = fractal_noise[:,:image.shape[-2],:image.shape[-1]]
+            raise ValueError(f"Expected 4D or 5D image, got {image.ndim}D")
 
-        # Hardcoded MOp color channels
-        fractal_noise = fractal_noise.reshape(image.shape) * color_chs[:,None,None,None]
+        if spatial_shape[0] > 1:
+            fractal_noise = [generate_fractal_noise_3d_torch([self.shape,self.shape,self.shape], res, self.octaves, self.persistence, device=image.device) for _ in range(n_noise)]
+            fractal_noise = torch.stack(fractal_noise)
+            fractal_noise = fractal_noise[:,:spatial_shape[0],:spatial_shape[1],:spatial_shape[2]]
+        else:
+            fractal_noise = [generate_fractal_noise_2d_torch([self.shape,self.shape], res, self.octaves, self.persistence, device=image.device) for _ in range(n_noise)]
+            fractal_noise = torch.stack(fractal_noise)
+            fractal_noise = fractal_noise[:,:spatial_shape[1],:spatial_shape[2]]
+
+        fractal_noise = fractal_noise.reshape(image.shape)
+
+        # Apply color channel weighting for multi-channel (MERFISH) data
+        if image.ndim == 5 and image.shape[1] > 1:
+            color_chs = torch.tensor([0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0]).to(image.device)
+            fractal_noise = fractal_noise * color_chs[:image.shape[1],None,None,None]
 
         return image + self.scale*fractal_noise
 
